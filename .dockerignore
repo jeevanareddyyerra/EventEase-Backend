@@ -1,0 +1,30 @@
+# Maven build target directory and JARs
+target/
+*.jar
+*.war
+
+# Environment and sensitive credential files
+.env
+.env.*
+*.local
+secrets/
+
+# Version control
+.git/
+.gitignore
+
+# IDE and Editor configurations
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# Logs
+*.log
+logs/
+
+# Operating System files
+.DS_Store
+Thumbs.db
