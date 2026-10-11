@@ -38,35 +38,60 @@ class AdminInitializerTest {
     }
 
     @Test
-    @DisplayName("initializeAdmin: skips when ADMIN_EMAIL is null or empty")
-    void testInitializeAdmin_SkipsWhenEmailEmpty() {
+    @DisplayName("initializeAdmin: defaults to fixed credentials admin@eventease.io / Admin@12345 when omitted")
+    void testInitializeAdmin_DefaultsToFixedCredentialsWhenOmitted() {
         adminInitializer.setAdminEmail(null);
-        adminInitializer.setAdminPassword("Secret123");
-        assertFalse(adminInitializer.initializeAdmin());
-
-        adminInitializer.setAdminEmail("   ");
-        assertFalse(adminInitializer.initializeAdmin());
-
-        verify(userRepository, never()).save(any());
-    }
-
-    @Test
-    @DisplayName("initializeAdmin: skips when ADMIN_PASSWORD is null or empty")
-    void testInitializeAdmin_SkipsWhenPasswordEmpty() {
-        adminInitializer.setAdminEmail("admin@eventease.com");
         adminInitializer.setAdminPassword(null);
-        assertFalse(adminInitializer.initializeAdmin());
+        adminInitializer.setAdminName(null);
 
-        adminInitializer.setAdminPassword("   ");
-        assertFalse(adminInitializer.initializeAdmin());
+        when(userRepository.findByEmail("admin@eventease.io")).thenReturn(Optional.empty());
+        when(passwordEncoder.encode("Admin@12345")).thenReturn("bcrypt-Admin@12345");
+        when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArgument(0));
 
+        boolean created = adminInitializer.initializeAdmin();
+
+        assertTrue(created);
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+
+        User savedUser = captor.getValue();
+        assertEquals("admin@eventease.io", savedUser.getEmail());
+        assertEquals("Admin@12345", "Admin@12345");
+        assertEquals("Platform Administrator", savedUser.getName());
+        assertEquals(Role.ADMIN, savedUser.getRole());
+        assertEquals(OrganizerStatus.APPROVED, savedUser.getOrganizerStatus());
+        assertEquals("bcrypt-Admin@12345", savedUser.getPassword());
+        assertNotNull(savedUser.getCreatedAt());
+    }
+
+    @Test
+    @DisplayName("initializeAdmin: idempotent when admin already exists with matching credentials")
+    void testInitializeAdmin_IdempotentWhenAdminAlreadyExists() {
+        User existingAdmin = new User();
+        existingAdmin.setId(1L);
+        existingAdmin.setName("Platform Administrator");
+        existingAdmin.setEmail("admin@eventease.io");
+        existingAdmin.setPassword("$2a$10$existingHash");
+        existingAdmin.setRole(Role.ADMIN);
+        existingAdmin.setOrganizerStatus(OrganizerStatus.APPROVED);
+
+        adminInitializer.setAdminEmail("admin@eventease.io");
+        adminInitializer.setAdminPassword("Admin@12345");
+
+        when(userRepository.findByEmail("admin@eventease.io")).thenReturn(Optional.of(existingAdmin));
+        when(passwordEncoder.matches("Admin@12345", "$2a$10$existingHash")).thenReturn(true);
+
+        boolean result = adminInitializer.initializeAdmin();
+
+        assertTrue(result);
         verify(userRepository, never()).save(any());
     }
 
     @Test
-    @DisplayName("initializeAdmin: rejects password with less than 6 characters")
+    @DisplayName("initializeAdmin: rejects custom password with less than 6 characters")
     void testInitializeAdmin_RejectsShortPassword() {
-        adminInitializer.setAdminEmail("admin@eventease.com");
+        adminInitializer.setAdminEmail("admin@eventease.io");
         adminInitializer.setAdminPassword("12345"); // 5 chars
 
         assertFalse(adminInitializer.initializeAdmin());
@@ -76,11 +101,11 @@ class AdminInitializerTest {
     @Test
     @DisplayName("initializeAdmin: creates new ADMIN user when account does not exist")
     void testInitializeAdmin_CreatesNewAdminUser() {
-        adminInitializer.setAdminEmail("  Admin@EventEase.COM  ");
+        adminInitializer.setAdminEmail("  SuperAdmin@EventEase.IO  ");
         adminInitializer.setAdminPassword("SecurePassword123!");
         adminInitializer.setAdminName("Chief Administrator");
 
-        when(userRepository.findByEmail("admin@eventease.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("superadmin@eventease.io")).thenReturn(Optional.empty());
         when(passwordEncoder.encode("SecurePassword123!")).thenReturn("hashed-bcrypt-secret");
         when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -92,7 +117,7 @@ class AdminInitializerTest {
         verify(userRepository).save(userCaptor.capture());
 
         User savedUser = userCaptor.getValue();
-        assertEquals("admin@eventease.com", savedUser.getEmail());
+        assertEquals("superadmin@eventease.io", savedUser.getEmail());
         assertEquals("Chief Administrator", savedUser.getName());
         assertEquals(Role.ADMIN, savedUser.getRole());
         assertEquals(OrganizerStatus.APPROVED, savedUser.getOrganizerStatus());
@@ -101,7 +126,7 @@ class AdminInitializerTest {
     }
 
     @Test
-    @DisplayName("initializeAdmin: promotes existing user to ADMIN and updates credentials")
+    @DisplayName("initializeAdmin: promotes existing user to ADMIN and synchronizes password if different")
     void testInitializeAdmin_PromotesExistingUser() {
         User existingUser = new User();
         existingUser.setId(42L);
@@ -115,6 +140,7 @@ class AdminInitializerTest {
         adminInitializer.setAdminPassword("NewAdminPassword123!");
 
         when(userRepository.findByEmail("staff@eventease.com")).thenReturn(Optional.of(existingUser));
+        when(passwordEncoder.matches("NewAdminPassword123!", "old-hash")).thenReturn(false);
         when(passwordEncoder.encode("NewAdminPassword123!")).thenReturn("new-bcrypt-hash");
         when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -128,28 +154,14 @@ class AdminInitializerTest {
     }
 
     @Test
-    @DisplayName("initializeAdmin: default name is Platform Administrator when name omitted")
-    void testInitializeAdmin_DefaultNameWhenOmitted() {
-        adminInitializer.setAdminEmail("admin@eventease.com");
-        adminInitializer.setAdminPassword("Password123!");
-        adminInitializer.setAdminName(null);
-
-        when(userRepository.findByEmail("admin@eventease.com")).thenReturn(Optional.empty());
-        when(passwordEncoder.encode("Password123!")).thenReturn("hashed-pwd");
-        when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArgument(0));
-
-        assertTrue(adminInitializer.initializeAdmin());
-
-        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
-        verify(userRepository).save(captor.capture());
-        assertEquals("Platform Administrator", captor.getValue().getName());
-    }
-
-    @Test
     @DisplayName("run: executes initialization on application startup")
     void testRun_ExecutesInitialization() {
-        adminInitializer.setAdminEmail(null);
+        when(userRepository.findByEmail("admin@eventease.io")).thenReturn(Optional.empty());
+        when(passwordEncoder.encode("Admin@12345")).thenReturn("bcrypt-Admin@12345");
+        when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArgument(0));
+
         adminInitializer.run(null);
-        verify(userRepository, never()).save(any());
+
+        verify(userRepository).save(any(User.class));
     }
 }

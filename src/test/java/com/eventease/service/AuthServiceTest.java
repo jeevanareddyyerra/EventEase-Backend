@@ -130,4 +130,27 @@ class AuthServiceTest {
         assertEquals("jwt.token.approved", response.getToken());
         verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
     }
+
+    @Test
+    @DisplayName("Login with admin credentials returns AuthResponse with Role.ADMIN and OrganizerStatus.APPROVED")
+    void login_adminUser_returnsAuthResponseWithRoleAdminAndStatusApproved() {
+        LoginRequest request = new LoginRequest("admin@eventease.io", "Admin@12345");
+        User admin = new User("Platform Administrator", "admin@eventease.io", "encoded-admin-hash", null, Role.ADMIN);
+        admin.setId(1L);
+        admin.setOrganizerStatus(OrganizerStatus.APPROVED);
+
+        when(userRepository.findByEmail("admin@eventease.io")).thenReturn(Optional.of(admin));
+        when(jwtService.generateToken("admin@eventease.io")).thenReturn("jwt.token.admin");
+
+        AuthResponse response = authService.login(request);
+
+        assertNotNull(response);
+        assertEquals(1L, response.getUserId());
+        assertEquals("admin@eventease.io", response.getEmail());
+        assertEquals("Platform Administrator", response.getName());
+        assertEquals(Role.ADMIN, response.getRole());
+        assertEquals(OrganizerStatus.APPROVED, response.getOrganizerStatus());
+        assertEquals("jwt.token.admin", response.getToken());
+        verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
+    }
 }
