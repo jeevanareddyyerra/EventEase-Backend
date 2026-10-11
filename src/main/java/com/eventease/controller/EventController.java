@@ -104,18 +104,24 @@ public class EventController {
     }
 
     private Event toEntity(EventRequest request) {
-        User organizer;
+        User organizer = null;
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.isAuthenticated() && !auth.getPrincipal().equals("anonymousUser")) {
             boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
             boolean isOrganizer = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ORGANIZER"));
             if (isOrganizer && !isAdmin) {
                 organizer = userService.getUserByEmail(auth.getName());
-            } else {
+            } else if (isAdmin && request.getOrganizerId() != null) {
                 organizer = userService.getUserById(request.getOrganizerId());
+            } else {
+                organizer = userService.getUserByEmail(auth.getName());
             }
-        } else {
+        }
+        if (organizer == null && request.getOrganizerId() != null) {
             organizer = userService.getUserById(request.getOrganizerId());
+        }
+        if (organizer == null) {
+            throw new com.eventease.exception.BusinessRuleException("Organizer ID is required or user must be authenticated", HttpStatus.BAD_REQUEST);
         }
 
         Event event = new Event();

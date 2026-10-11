@@ -35,7 +35,6 @@ public class EventRequest {
 
     private LocalDateTime registrationDeadline;
 
-    @NotNull(message = "Organizer ID is required")
     private Long organizerId;
 
     public EventRequest() {
