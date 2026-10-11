@@ -74,6 +74,7 @@ public class UserController {
                 user.getEmail(),
                 user.getPhone(),
                 user.getRole(),
+                user.getOrganizerStatus(),
                 user.getCreatedAt()
         );
     }

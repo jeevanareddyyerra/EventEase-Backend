@@ -13,6 +13,7 @@ public class PlatformSummaryResponse {
     private long completedEvents;
     private long cancelledEvents;
     private long totalRegistrations;
+    private long pendingOrganizers;
 
     public PlatformSummaryResponse() {
     }
@@ -129,5 +130,13 @@ public class PlatformSummaryResponse {
 
     public void setTotalRegistrations(long totalRegistrations) {
         this.totalRegistrations = totalRegistrations;
+    }
+
+    public long getPendingOrganizers() {
+        return pendingOrganizers;
+    }
+
+    public void setPendingOrganizers(long pendingOrganizers) {
+        this.pendingOrganizers = pendingOrganizers;
     }
 }

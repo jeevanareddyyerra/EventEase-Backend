@@ -1,5 +1,6 @@
 package com.eventease.dto.response;
 
+import com.eventease.entity.OrganizerStatus;
 import com.eventease.entity.Role;
 import java.time.LocalDateTime;
 
@@ -10,17 +11,23 @@ public class UserResponse {
     private String email;
     private String phone;
     private Role role;
+    private OrganizerStatus organizerStatus;
     private LocalDateTime createdAt;
 
     public UserResponse() {
     }
 
     public UserResponse(Long id, String name, String email, String phone, Role role, LocalDateTime createdAt) {
+        this(id, name, email, phone, role, OrganizerStatus.NONE, createdAt);
+    }
+
+    public UserResponse(Long id, String name, String email, String phone, Role role, OrganizerStatus organizerStatus, LocalDateTime createdAt) {
         this.id = id;
         this.name = name;
         this.email = email;
         this.phone = phone;
         this.role = role;
+        this.organizerStatus = organizerStatus != null ? organizerStatus : OrganizerStatus.NONE;
         this.createdAt = createdAt;
     }
 
@@ -62,6 +69,14 @@ public class UserResponse {
 
     public void setRole(Role role) {
         this.role = role;
+    }
+
+    public OrganizerStatus getOrganizerStatus() {
+        return organizerStatus != null ? organizerStatus : OrganizerStatus.NONE;
+    }
+
+    public void setOrganizerStatus(OrganizerStatus organizerStatus) {
+        this.organizerStatus = organizerStatus != null ? organizerStatus : OrganizerStatus.NONE;
     }
 
     public LocalDateTime getCreatedAt() {

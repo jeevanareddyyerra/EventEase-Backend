@@ -3,6 +3,7 @@ package com.eventease.service;
 import com.eventease.dto.response.PlatformSummaryResponse;
 import com.eventease.entity.EventStatus;
 import com.eventease.entity.Role;
+import com.eventease.entity.User;
 import com.eventease.repository.EventRepository;
 import com.eventease.repository.RegistrationRepository;
 import com.eventease.repository.UserRepository;
@@ -78,5 +79,59 @@ class AdminServiceTest {
         verify(eventRepository).countByStatus(EventStatus.CANCELLED);
 
         verify(registrationRepository).count();
+    }
+
+    @Test
+    @DisplayName("Should return organizer requests filtered by status")
+    void shouldReturnOrganizerRequestsWithStatus() {
+        User user = new User("Jane Organizer", "jane@example.com", "secret", "1234567890", Role.USER);
+        user.setId(10L);
+        user.setOrganizerStatus(com.eventease.entity.OrganizerStatus.PENDING);
+
+        when(userRepository.findByOrganizerStatus(com.eventease.entity.OrganizerStatus.PENDING))
+                .thenReturn(java.util.List.of(user));
+
+        java.util.List<com.eventease.dto.response.UserResponse> requests =
+                adminService.getOrganizerRequests(com.eventease.entity.OrganizerStatus.PENDING);
+
+        assertEquals(1, requests.size());
+        assertEquals("Jane Organizer", requests.get(0).getName());
+        assertEquals(com.eventease.entity.OrganizerStatus.PENDING, requests.get(0).getOrganizerStatus());
+    }
+
+    @Test
+    @DisplayName("Should approve organizer request: updates role to ORGANIZER and status to APPROVED")
+    void shouldApproveOrganizerRequest() {
+        User user = new User("Jane Organizer", "jane@example.com", "secret", "1234567890", Role.USER);
+        user.setId(10L);
+        user.setOrganizerStatus(com.eventease.entity.OrganizerStatus.PENDING);
+
+        when(userRepository.findById(10L)).thenReturn(java.util.Optional.of(user));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        com.eventease.dto.response.UserResponse response = adminService.approveOrganizerRequest(10L);
+
+        assertEquals(Role.ORGANIZER, response.getRole());
+        assertEquals(com.eventease.entity.OrganizerStatus.APPROVED, response.getOrganizerStatus());
+        assertEquals(Role.ORGANIZER, user.getRole());
+        assertEquals(com.eventease.entity.OrganizerStatus.APPROVED, user.getOrganizerStatus());
+    }
+
+    @Test
+    @DisplayName("Should reject organizer request: keeps role USER and status REJECTED")
+    void shouldRejectOrganizerRequest() {
+        User user = new User("Jane Organizer", "jane@example.com", "secret", "1234567890", Role.USER);
+        user.setId(10L);
+        user.setOrganizerStatus(com.eventease.entity.OrganizerStatus.PENDING);
+
+        when(userRepository.findById(10L)).thenReturn(java.util.Optional.of(user));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        com.eventease.dto.response.UserResponse response = adminService.rejectOrganizerRequest(10L);
+
+        assertEquals(Role.USER, response.getRole());
+        assertEquals(com.eventease.entity.OrganizerStatus.REJECTED, response.getOrganizerStatus());
+        assertEquals(Role.USER, user.getRole());
+        assertEquals(com.eventease.entity.OrganizerStatus.REJECTED, user.getOrganizerStatus());
     }
 }

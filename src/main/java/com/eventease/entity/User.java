@@ -28,6 +28,10 @@ public class User {
     @Column(nullable = false)
     private Role role;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private OrganizerStatus organizerStatus = OrganizerStatus.NONE;
+
     private LocalDateTime createdAt;
 
     @OneToMany(mappedBy = "organizer")
@@ -107,6 +111,14 @@ public class User {
 
     public void setRole(Role role) {
         this.role = role;
+    }
+
+    public OrganizerStatus getOrganizerStatus() {
+        return organizerStatus != null ? organizerStatus : OrganizerStatus.NONE;
+    }
+
+    public void setOrganizerStatus(OrganizerStatus organizerStatus) {
+        this.organizerStatus = organizerStatus != null ? organizerStatus : OrganizerStatus.NONE;
     }
 
     public LocalDateTime getCreatedAt() {

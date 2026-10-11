@@ -182,6 +182,7 @@ public class EventService {
     @Transactional
     public Event updateEvent(Long id, Event event) {
         Event existingEvent = getEventById(id);
+        checkEventOwnership(existingEvent, "edit");
         existingEvent.setTitle(event.getTitle());
         existingEvent.setDescription(event.getDescription());
         existingEvent.setCategory(event.getCategory());
@@ -267,15 +268,37 @@ public class EventService {
         return saved;
     }
 
+    @Transactional
     public void deleteEvent(Long id) {
         if (!eventRepository.existsById(id)) {
             log.warn("Event deletion failed - event not found with id: {}", id);
             throw new ResourceNotFoundException("Event not found with id: " + id);
         }
+        eventRepository.findById(id).ifPresent(event -> checkEventOwnership(event, "delete"));
         if (documentIndexService != null) {
             documentIndexService.removeEventDocuments(id);
         }
         eventRepository.deleteById(id);
         log.info("Event deleted successfully [eventId={}]", id);
+    }
+
+    private void checkEventOwnership(Event event, String action) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && !auth.getPrincipal().equals("anonymousUser")) {
+            boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+            boolean isOrganizer = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ORGANIZER"));
+            boolean isUserOnly = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_USER")) && !isAdmin && !isOrganizer;
+
+            if (isUserOnly) {
+                throw new BusinessRuleException("Users are not authorized to " + action + " events.", HttpStatus.FORBIDDEN);
+            }
+
+            if (isOrganizer && !isAdmin) {
+                if (event.getOrganizer() != null && event.getOrganizer().getEmail() != null
+                        && !event.getOrganizer().getEmail().equalsIgnoreCase(auth.getName())) {
+                    throw new BusinessRuleException("Organizers can only " + action + " their own events.", HttpStatus.FORBIDDEN);
+                }
+            }
+        }
     }
 }

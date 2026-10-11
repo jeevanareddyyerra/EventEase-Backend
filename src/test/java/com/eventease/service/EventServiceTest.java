@@ -278,6 +278,49 @@ class EventServiceTest {
         verify(eventRepository, never()).save(any());
     }
 
+    @Test
+    void updateEvent_organizerCannotEditOtherOrganizerEvent() {
+        setupSecurityContext("other.organizer@eventease.com", "ROLE_ORGANIZER");
+        when(eventRepository.findById(1L)).thenReturn(Optional.of(sampleEvent));
+
+        Event updateDetails = new Event();
+        updateDetails.setTitle("Malicious Edit");
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () ->
+                eventService.updateEvent(1L, updateDetails)
+        );
+
+        assertEquals(HttpStatus.FORBIDDEN, ex.getStatus());
+        assertTrue(ex.getMessage().contains("Organizers can only edit their own events"));
+        verify(eventRepository, never()).save(any());
+    }
+
+    @Test
+    void deleteEvent_organizerCannotDeleteOtherOrganizerEvent() {
+        setupSecurityContext("other.organizer@eventease.com", "ROLE_ORGANIZER");
+        when(eventRepository.existsById(1L)).thenReturn(true);
+        when(eventRepository.findById(1L)).thenReturn(Optional.of(sampleEvent));
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () ->
+                eventService.deleteEvent(1L)
+        );
+
+        assertEquals(HttpStatus.FORBIDDEN, ex.getStatus());
+        assertTrue(ex.getMessage().contains("Organizers can only delete their own events"));
+        verify(eventRepository, never()).deleteById(any());
+    }
+
+    @Test
+    void deleteEvent_organizerCanDeleteOwnEvent() {
+        setupSecurityContext("organizer@eventease.com", "ROLE_ORGANIZER");
+        when(eventRepository.existsById(1L)).thenReturn(true);
+        when(eventRepository.findById(1L)).thenReturn(Optional.of(sampleEvent));
+
+        eventService.deleteEvent(1L);
+
+        verify(eventRepository).deleteById(1L);
+    }
+
     // ==========================================
     // 6. EVENT SEARCH & MULTI-CRITERIA FILTERING (PHASE 12C)
     // ==========================================

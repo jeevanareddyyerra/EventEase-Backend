@@ -3,6 +3,7 @@ package com.eventease.service;
 import com.eventease.dto.request.LoginRequest;
 import com.eventease.dto.request.SignupRequest;
 import com.eventease.dto.response.AuthResponse;
+import com.eventease.entity.OrganizerStatus;
 import com.eventease.entity.Role;
 import com.eventease.entity.User;
 import com.eventease.exception.DuplicateResourceException;
@@ -57,10 +58,16 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setPhone(request.getPhone() != null && !request.getPhone().isBlank() ? request.getPhone().trim() : null);
         user.setRole(Role.USER);
+        if ("ORGANIZER".equalsIgnoreCase(request.getAccountType())) {
+            user.setOrganizerStatus(OrganizerStatus.PENDING);
+        } else {
+            user.setOrganizerStatus(OrganizerStatus.NONE);
+        }
         user.setCreatedAt(LocalDateTime.now());
 
         User savedUser = userRepository.save(user);
-        log.info("User registered successfully [userId={}, role={}]", savedUser.getId(), savedUser.getRole());
+        log.info("User registered successfully [userId={}, role={}, organizerStatus={}]",
+                savedUser.getId(), savedUser.getRole(), savedUser.getOrganizerStatus());
 
         String token = jwtService.generateToken(savedUser.getEmail());
 
@@ -69,7 +76,8 @@ public class AuthService {
                 savedUser.getId(),
                 savedUser.getName(),
                 savedUser.getEmail(),
-                savedUser.getRole()
+                savedUser.getRole(),
+                savedUser.getOrganizerStatus()
         );
     }
 
@@ -78,7 +86,7 @@ public class AuthService {
 
         try {
             authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(normalizedEmail, request.getPassword())
+                new UsernamePasswordAuthenticationToken(normalizedEmail, request.getPassword())
             );
         } catch (AuthenticationException e) {
             log.warn("Authentication failed for login attempt");
@@ -91,7 +99,8 @@ public class AuthService {
                     return new BadCredentialsException("Invalid email or password");
                 });
 
-        log.info("User logged in successfully [userId={}, role={}]", user.getId(), user.getRole());
+        log.info("User logged in successfully [userId={}, role={}, organizerStatus={}]",
+                user.getId(), user.getRole(), user.getOrganizerStatus());
         String token = jwtService.generateToken(user.getEmail());
 
         return new AuthResponse(
@@ -99,7 +108,8 @@ public class AuthService {
                 user.getId(),
                 user.getName(),
                 user.getEmail(),
-                user.getRole()
+                user.getRole(),
+                user.getOrganizerStatus()
         );
     }
 }

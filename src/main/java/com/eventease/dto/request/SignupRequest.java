@@ -18,6 +18,7 @@ public class SignupRequest {
     private String password;
 
     private String phone;
+    private String accountType;
 
     public SignupRequest() {
     }
@@ -27,6 +28,14 @@ public class SignupRequest {
         this.email = email;
         this.password = password;
         this.phone = phone;
+    }
+
+    public SignupRequest(String name, String email, String password, String phone, String accountType) {
+        this.name = name;
+        this.email = email;
+        this.password = password;
+        this.phone = phone;
+        this.accountType = accountType;
     }
 
     public String getName() {
@@ -59,5 +68,13 @@ public class SignupRequest {
 
     public void setPhone(String phone) {
         this.phone = phone;
+    }
+
+    public String getAccountType() {
+        return accountType;
+    }
+
+    public void setAccountType(String accountType) {
+        this.accountType = accountType;
     }
 }
