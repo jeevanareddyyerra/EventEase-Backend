@@ -220,6 +220,37 @@ class EventServiceTest {
         assertEquals(EventStatus.APPROVED, result.getStatus(), "Normal updateEvent must not alter status");
     }
 
+    @Test
+    void updateEvent_preservesExistingImageUrl_whenIncomingImageUrlIsNull() {
+        sampleEvent.setImageUrl("https://res.cloudinary.com/eventease/image/upload/v1/poster.jpg");
+        when(eventRepository.findById(1L)).thenReturn(Optional.of(sampleEvent));
+        when(eventRepository.save(any(Event.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Event updateDetails = new Event();
+        updateDetails.setTitle("Updated Title");
+        updateDetails.setImageUrl(null);
+
+        Event result = eventService.updateEvent(1L, updateDetails);
+
+        assertEquals("https://res.cloudinary.com/eventease/image/upload/v1/poster.jpg", result.getImageUrl(),
+                "Existing imageUrl must be preserved when update request contains null imageUrl");
+    }
+
+    @Test
+    void updateEvent_updatesImageUrl_whenIncomingImageUrlIsNotNull() {
+        sampleEvent.setImageUrl("https://res.cloudinary.com/eventease/image/upload/v1/old_poster.jpg");
+        when(eventRepository.findById(1L)).thenReturn(Optional.of(sampleEvent));
+        when(eventRepository.save(any(Event.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Event updateDetails = new Event();
+        updateDetails.setTitle("Updated Title");
+        updateDetails.setImageUrl("https://res.cloudinary.com/eventease/image/upload/v1/new_poster.jpg");
+
+        Event result = eventService.updateEvent(1L, updateDetails);
+
+        assertEquals("https://res.cloudinary.com/eventease/image/upload/v1/new_poster.jpg", result.getImageUrl());
+    }
+
     // ==========================================
     // 5. SECURITY & ROLE / OWNERSHIP PERMISSIONS
     // ==========================================
