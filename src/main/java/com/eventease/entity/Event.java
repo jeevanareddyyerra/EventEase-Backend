@@ -41,6 +41,9 @@ public class Event {
     @Column(nullable = false)
     private EventStatus status;
 
+    @Column(length = 1000)
+    private String imageUrl;
+
     private LocalDateTime createdAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -230,5 +233,13 @@ public class Event {
 
     public void setDocuments(List<EventDocument> documents) {
         this.documents = documents;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
     }
 }

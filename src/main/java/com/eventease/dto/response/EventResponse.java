@@ -22,6 +22,7 @@ public class EventResponse {
     private Long organizerId;
     private String organizerName;
     private LocalDateTime createdAt;
+    private String imageUrl;
 
     public EventResponse() {
     }
@@ -30,6 +31,14 @@ public class EventResponse {
                          LocalTime startTime, LocalTime endTime, String venue, Integer capacity,
                          String eligibility, LocalDateTime registrationDeadline, EventStatus status,
                          Long organizerId, String organizerName, LocalDateTime createdAt) {
+        this(id, title, description, category, date, startTime, endTime, venue, capacity,
+                eligibility, registrationDeadline, status, organizerId, organizerName, createdAt, null);
+    }
+
+    public EventResponse(Long id, String title, String description, String category, LocalDate date,
+                         LocalTime startTime, LocalTime endTime, String venue, Integer capacity,
+                         String eligibility, LocalDateTime registrationDeadline, EventStatus status,
+                         Long organizerId, String organizerName, LocalDateTime createdAt, String imageUrl) {
         this.id = id;
         this.title = title;
         this.description = description;
@@ -45,6 +54,7 @@ public class EventResponse {
         this.organizerId = organizerId;
         this.organizerName = organizerName;
         this.createdAt = createdAt;
+        this.imageUrl = imageUrl;
     }
 
     public Long getId() {
@@ -165,5 +175,13 @@ public class EventResponse {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
     }
 }

@@ -135,6 +135,7 @@ public class EventController {
         event.setCapacity(request.getCapacity());
         event.setEligibility(request.getEligibility());
         event.setRegistrationDeadline(request.getRegistrationDeadline());
+        event.setImageUrl(request.getImageUrl());
         event.setStatus(EventStatus.PENDING);
         event.setOrganizer(organizer);
         return event;
@@ -158,7 +159,8 @@ public class EventController {
                 event.getStatus(),
                 organizerId,
                 organizerName,
-                event.getCreatedAt()
+                event.getCreatedAt(),
+                event.getImageUrl()
         );
     }
 }

@@ -37,6 +37,9 @@ public class EventRequest {
 
     private Long organizerId;
 
+    @Size(max = 1000, message = "Image URL must not exceed 1000 characters")
+    private String imageUrl;
+
     public EventRequest() {
     }
 
@@ -142,5 +145,13 @@ public class EventRequest {
 
     public void setOrganizerId(Long organizerId) {
         this.organizerId = organizerId;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
     }
 }

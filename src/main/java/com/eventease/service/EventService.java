@@ -193,6 +193,7 @@ public class EventService {
         existingEvent.setCapacity(event.getCapacity());
         existingEvent.setEligibility(event.getEligibility());
         existingEvent.setRegistrationDeadline(event.getRegistrationDeadline());
+        existingEvent.setImageUrl(event.getImageUrl());
         // Status changes are intentionally prohibited through general update
         if (event.getOrganizer() != null) {
             existingEvent.setOrganizer(event.getOrganizer());
