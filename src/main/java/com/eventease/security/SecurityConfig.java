@@ -16,21 +16,29 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.core.Ordered;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.filter.CorsFilter;
 
 import org.springframework.beans.factory.annotation.Value;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Set;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
-    @Value("${cors.allowed-origins:http://localhost:5173}")
+    private static final String DEFAULT_PRODUCTION_FRONTEND = "https://event-ease-frontend-chi.vercel.app";
+    private static final String DEFAULT_LOCAL_FRONTEND = "http://localhost:5173";
+
+    @Value("${cors.allowed-origins:http://localhost:5173,https://event-ease-frontend-chi.vercel.app}")
     private String allowedOrigins;
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -61,6 +69,9 @@ public class SecurityConfig {
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // Preflight OPTIONS requests across all endpoints
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
                         // Public authentication endpoints
                         .requestMatchers("/api/auth/**").permitAll()
 
@@ -169,17 +180,47 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        List<String> origins = Arrays.stream(allowedOrigins.split(","))
-                .map(String::trim)
-                .filter(origin -> !origin.isEmpty())
-                .collect(Collectors.toList());
-        configuration.setAllowedOrigins(origins.isEmpty() ? List.of("http://localhost:5173") : origins);
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        configuration.setAllowedHeaders(List.of("*"));
+
+        Set<String> origins = new LinkedHashSet<>();
+        // 1. Explicitly allow the deployed production frontend origin
+        origins.add(DEFAULT_PRODUCTION_FRONTEND);
+
+        // 2. Read and parse any configured origins from CORS_ALLOWED_ORIGINS / cors.allowed-origins
+        if (allowedOrigins != null && !allowedOrigins.isBlank()) {
+            Arrays.stream(allowedOrigins.split(","))
+                    .map(String::trim)
+                    .map(origin -> origin.endsWith("/") ? origin.substring(0, origin.length() - 1) : origin)
+                    .filter(origin -> !origin.isEmpty() && !origin.equals("*"))
+                    .forEach(origins::add);
+        }
+
+        // 3. Keep local development origin as safe default
+        origins.add(DEFAULT_LOCAL_FRONTEND);
+
+        configuration.setAllowedOrigins(new ArrayList<>(origins));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of(
+                "Authorization",
+                "Content-Type",
+                "X-Requested-With",
+                "Accept",
+                "Origin",
+                "Access-Control-Request-Method",
+                "Access-Control-Request-Headers"
+        ));
+        configuration.setExposedHeaders(List.of("Authorization", "Content-Type"));
         configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+
+    @Bean
+    public FilterRegistrationBean<CorsFilter> corsFilterRegistrationBean() {
+        FilterRegistrationBean<CorsFilter> bean = new FilterRegistrationBean<>(new CorsFilter(corsConfigurationSource()));
+        bean.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        return bean;
     }
 }
