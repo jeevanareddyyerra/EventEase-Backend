@@ -147,10 +147,10 @@ class RegistrationServiceTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = EventStatus.class, names = {"PENDING", "APPROVED", "COMPLETED", "CANCELLED"})
-    void registrationForNonPublishedEvent_throwsException(EventStatus nonPublishedStatus) {
+    @EnumSource(value = EventStatus.class, names = {"PENDING", "COMPLETED", "CANCELLED"})
+    void registrationForNonApprovedOrPublishedEvent_throwsException(EventStatus nonAllowedStatus) {
         setupSecurityContext("test@example.com", "ROLE_USER");
-        publishedEvent.setStatus(nonPublishedStatus);
+        publishedEvent.setStatus(nonAllowedStatus);
         when(eventRepository.findById(10L)).thenReturn(Optional.of(publishedEvent));
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(authUser));
 
@@ -159,7 +159,111 @@ class RegistrationServiceTest {
                 registrationService.createRegistration(request)
         );
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
-        assertTrue(ex.getMessage().contains("Only PUBLISHED events allow registration"));
+        assertTrue(ex.getMessage().contains("Only APPROVED or PUBLISHED events allow registration"));
+    }
+
+    @Test
+    void registrationForApprovedEvent_participant_success() {
+        setupSecurityContext("test@example.com", "ROLE_USER");
+        publishedEvent.setStatus(EventStatus.APPROVED);
+        when(eventRepository.findById(10L)).thenReturn(Optional.of(publishedEvent));
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(authUser));
+        when(registrationRepository.existsByUserIdAndEventId(1L, 10L)).thenReturn(false);
+        when(registrationRepository.countByEventIdAndTypeAndStatusIn(eq(10L), eq(RegistrationType.PARTICIPANT), anyCollection()))
+                .thenReturn(5L);
+        when(registrationRepository.save(any(Registration.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        RegistrationRequest request = new RegistrationRequest(1L, 10L, RegistrationType.PARTICIPANT);
+        Registration result = registrationService.createRegistration(request);
+
+        assertNotNull(result);
+        assertEquals(authUser, result.getUser());
+        assertEquals(publishedEvent, result.getEvent());
+        assertEquals(RegistrationType.PARTICIPANT, result.getType());
+        assertEquals(RegistrationStatus.REGISTERED, result.getStatus());
+        assertEquals(EventStatus.APPROVED, result.getEvent().getStatus());
+        assertNotNull(result.getRegisteredAt());
+        verify(registrationRepository).save(any(Registration.class));
+    }
+
+    @Test
+    void registrationForApprovedEvent_volunteer_success() {
+        setupSecurityContext("test@example.com", "ROLE_USER");
+        publishedEvent.setStatus(EventStatus.APPROVED);
+        when(eventRepository.findById(10L)).thenReturn(Optional.of(publishedEvent));
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(authUser));
+        when(registrationRepository.existsByUserIdAndEventId(1L, 10L)).thenReturn(false);
+
+        VolunteerRequirement requirement = new VolunteerRequirement(publishedEvent, 5, "Volunteers needed");
+        when(volunteerRequirementRepository.findByEventId(10L)).thenReturn(Optional.of(requirement));
+        when(registrationRepository.countByEventIdAndTypeAndStatusIn(eq(10L), eq(RegistrationType.VOLUNTEER), anyCollection()))
+                .thenReturn(2L);
+        when(registrationRepository.save(any(Registration.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        RegistrationRequest request = new RegistrationRequest(1L, 10L, RegistrationType.VOLUNTEER);
+        Registration result = registrationService.createRegistration(request);
+
+        assertNotNull(result);
+        assertEquals(RegistrationType.VOLUNTEER, result.getType());
+        assertEquals(RegistrationStatus.REGISTERED, result.getStatus());
+        assertEquals(EventStatus.APPROVED, result.getEvent().getStatus());
+        assertNotNull(result.getRegisteredAt());
+    }
+
+    @Test
+    void registrationForApprovedEvent_afterDeadline_throwsException() {
+        setupSecurityContext("test@example.com", "ROLE_USER");
+        publishedEvent.setStatus(EventStatus.APPROVED);
+        publishedEvent.setRegistrationDeadline(LocalDateTime.now().minusHours(1));
+        when(eventRepository.findById(10L)).thenReturn(Optional.of(publishedEvent));
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(authUser));
+
+        RegistrationRequest request = new RegistrationRequest(1L, 10L, RegistrationType.PARTICIPANT);
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () ->
+                registrationService.createRegistration(request)
+        );
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
+        assertTrue(ex.getMessage().contains("Registration deadline has passed"));
+    }
+
+    @Test
+    void registrationForApprovedEvent_participantCapacityReached_throwsException() {
+        setupSecurityContext("test@example.com", "ROLE_USER");
+        publishedEvent.setStatus(EventStatus.APPROVED);
+        publishedEvent.setCapacity(20);
+        when(eventRepository.findById(10L)).thenReturn(Optional.of(publishedEvent));
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(authUser));
+        when(registrationRepository.existsByUserIdAndEventId(1L, 10L)).thenReturn(false);
+        when(registrationRepository.countByEventIdAndTypeAndStatusIn(eq(10L), eq(RegistrationType.PARTICIPANT), anyCollection()))
+                .thenReturn(20L);
+
+        RegistrationRequest request = new RegistrationRequest(1L, 10L, RegistrationType.PARTICIPANT);
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () ->
+                registrationService.createRegistration(request)
+        );
+        assertEquals(HttpStatus.CONFLICT, ex.getStatus());
+        assertTrue(ex.getMessage().contains("Participant capacity has been reached"));
+    }
+
+    @Test
+    void registrationForApprovedEvent_volunteerCapacityReached_throwsException() {
+        setupSecurityContext("test@example.com", "ROLE_USER");
+        publishedEvent.setStatus(EventStatus.APPROVED);
+        when(eventRepository.findById(10L)).thenReturn(Optional.of(publishedEvent));
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(authUser));
+        when(registrationRepository.existsByUserIdAndEventId(1L, 10L)).thenReturn(false);
+
+        VolunteerRequirement requirement = new VolunteerRequirement(publishedEvent, 3, "Volunteers needed");
+        when(volunteerRequirementRepository.findByEventId(10L)).thenReturn(Optional.of(requirement));
+        when(registrationRepository.countByEventIdAndTypeAndStatusIn(eq(10L), eq(RegistrationType.VOLUNTEER), anyCollection()))
+                .thenReturn(3L);
+
+        RegistrationRequest request = new RegistrationRequest(1L, 10L, RegistrationType.VOLUNTEER);
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () ->
+                registrationService.createRegistration(request)
+        );
+        assertEquals(HttpStatus.CONFLICT, ex.getStatus());
+        assertTrue(ex.getMessage().contains("Volunteer capacity has been reached"));
     }
 
     @Test

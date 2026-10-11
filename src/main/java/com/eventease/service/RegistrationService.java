@@ -69,9 +69,9 @@ public class RegistrationService {
         User user = resolveUser(request.getUserId());
 
         // 3. EVENT STATUS
-        if (event.getStatus() != EventStatus.PUBLISHED) {
+        if (event.getStatus() != EventStatus.PUBLISHED && event.getStatus() != EventStatus.APPROVED) {
             throw new BusinessRuleException(
-                    "Cannot register for event with status: " + event.getStatus() + ". Only PUBLISHED events allow registration.",
+                    "Cannot register for event with status: " + event.getStatus() + ". Only APPROVED or PUBLISHED events allow registration.",
                     HttpStatus.BAD_REQUEST
             );
         }
