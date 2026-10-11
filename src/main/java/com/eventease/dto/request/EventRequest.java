@@ -1,5 +1,6 @@
 package com.eventease.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -20,10 +21,13 @@ public class EventRequest {
     private String category;
 
     @NotNull(message = "Date is required")
+    @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate date;
 
+    @JsonFormat(pattern = "HH:mm[:ss]")
     private LocalTime startTime;
 
+    @JsonFormat(pattern = "HH:mm[:ss]")
     private LocalTime endTime;
 
     private String venue;
@@ -33,6 +37,7 @@ public class EventRequest {
 
     private String eligibility;
 
+    @JsonFormat(pattern = "yyyy-MM-dd['T'HH:mm[:ss]]")
     private LocalDateTime registrationDeadline;
 
     private Long organizerId;
