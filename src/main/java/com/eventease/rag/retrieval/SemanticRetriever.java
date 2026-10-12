@@ -7,6 +7,7 @@ import com.eventease.rag.index.DocumentIndexService;
 import com.eventease.rag.model.DocumentChunk;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -19,6 +20,7 @@ import java.util.List;
  * Enforces strict public visibility isolation, minimum similarity threshold, and top-K limits.
  */
 @Service
+@Lazy
 public class SemanticRetriever {
 
     private static final Logger log = LoggerFactory.getLogger(SemanticRetriever.class);
@@ -28,8 +30,8 @@ public class SemanticRetriever {
     private final RagProperties ragProperties;
 
     public SemanticRetriever(
-            DocumentIndexService indexService,
-            EmbeddingService embeddingService,
+            @Lazy DocumentIndexService indexService,
+            @Lazy EmbeddingService embeddingService,
             RagProperties ragProperties
     ) {
         this.indexService = indexService;

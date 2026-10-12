@@ -9,6 +9,7 @@ import com.eventease.rag.embedding.EmbeddingService;
 import com.eventease.rag.model.DocumentChunk;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -24,6 +25,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * safe status transitions, and failure isolation.
  */
 @Service
+@Lazy
 public class DocumentIndexService {
 
     private static final Logger log = LoggerFactory.getLogger(DocumentIndexService.class);
@@ -36,7 +38,7 @@ public class DocumentIndexService {
     private final ConcurrentMap<Long, List<DocumentChunk>> documentChunksMap = new ConcurrentHashMap<>();
 
     @org.springframework.beans.factory.annotation.Autowired
-    public DocumentIndexService(DocumentChunker documentChunker, EmbeddingService embeddingService) {
+    public DocumentIndexService(DocumentChunker documentChunker, @Lazy EmbeddingService embeddingService) {
         this.documentChunker = documentChunker != null ? documentChunker : new DocumentChunker();
         this.embeddingService = embeddingService;
     }

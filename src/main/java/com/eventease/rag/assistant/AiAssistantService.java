@@ -11,6 +11,7 @@ import com.eventease.rag.retrieval.SemanticRetrievalResult;
 import com.eventease.rag.retrieval.SemanticRetriever;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -23,6 +24,7 @@ import java.util.stream.Collectors;
  * model inference, and grounded response packaging with source citations.
  */
 @Service
+@Lazy
 public class AiAssistantService {
 
     private static final Logger log = LoggerFactory.getLogger(AiAssistantService.class);
@@ -33,7 +35,7 @@ public class AiAssistantService {
     private final RagProperties ragProperties;
 
     public AiAssistantService(
-            SemanticRetriever semanticRetriever,
+            @Lazy SemanticRetriever semanticRetriever,
             GroundedPromptBuilder promptBuilder,
             AiModelClient aiModelClient,
             RagProperties ragProperties

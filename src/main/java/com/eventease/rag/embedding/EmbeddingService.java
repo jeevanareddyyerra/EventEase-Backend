@@ -6,6 +6,7 @@ import dev.langchain4j.model.embedding.onnx.allminilml6v2q.AllMiniLmL6V2Quantize
 import dev.langchain4j.model.output.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -15,22 +16,39 @@ import java.util.List;
 /**
  * Service for local, in-process embedding generation and vector similarity computation.
  * Uses an ONNX-quantized all-MiniLM-L6-v2 model running natively in Java 21 without external network calls.
+ * Model initialization is deferred so that embedded web server startup (Tomcat port binding) is not blocked.
  */
 @Service
+@Lazy
 public class EmbeddingService {
 
     private static final Logger log = LoggerFactory.getLogger(EmbeddingService.class);
     public static final int EMBEDDING_DIMENSION = 384;
 
-    private final EmbeddingModel embeddingModel;
+    private volatile EmbeddingModel embeddingModel;
 
     public EmbeddingService() {
-        this(new AllMiniLmL6V2QuantizedEmbeddingModel());
+        // Model initialization is deferred to avoid blocking Spring Boot application startup
     }
 
     public EmbeddingService(EmbeddingModel embeddingModel) {
-        this.embeddingModel = embeddingModel != null ? embeddingModel : new AllMiniLmL6V2QuantizedEmbeddingModel();
-        log.info("Initialized local EmbeddingService with dimension {}", EMBEDDING_DIMENSION);
+        this.embeddingModel = embeddingModel;
+        if (embeddingModel != null) {
+            log.info("Initialized local EmbeddingService with provided model, dimension {}", EMBEDDING_DIMENSION);
+        }
+    }
+
+    public EmbeddingModel getOrInitModel() {
+        if (embeddingModel == null) {
+            synchronized (this) {
+                if (embeddingModel == null) {
+                    log.info("Initializing in-process ONNX EmbeddingModel (all-MiniLM-L6-v2-q)...");
+                    this.embeddingModel = new AllMiniLmL6V2QuantizedEmbeddingModel();
+                    log.info("Initialized local EmbeddingService with dimension {}", EMBEDDING_DIMENSION);
+                }
+            }
+        }
+        return embeddingModel;
     }
 
     /**
@@ -45,7 +63,7 @@ public class EmbeddingService {
         }
 
         try {
-            Response<Embedding> response = embeddingModel.embed(text.trim());
+            Response<Embedding> response = getOrInitModel().embed(text.trim());
             Embedding embedding = response.content();
             float[] vector = embedding.vector();
 

@@ -12,6 +12,7 @@ import com.eventease.repository.EventRepository;
 import com.eventease.repository.UserRepository;
 import com.eventease.rag.index.DocumentIndexService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -34,7 +35,7 @@ public class EventDocumentService {
             EventDocumentRepository eventDocumentRepository,
             EventRepository eventRepository,
             UserRepository userRepository,
-            DocumentIndexService documentIndexService
+            @Lazy DocumentIndexService documentIndexService
     ) {
         this.eventDocumentRepository = eventDocumentRepository;
         this.eventRepository = eventRepository;

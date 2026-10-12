@@ -52,7 +52,7 @@ public class EventService {
     }
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
-    public void setDocumentIndexService(com.eventease.rag.index.DocumentIndexService documentIndexService) {
+    public void setDocumentIndexService(@org.springframework.context.annotation.Lazy com.eventease.rag.index.DocumentIndexService documentIndexService) {
         this.documentIndexService = documentIndexService;
     }
 

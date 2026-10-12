@@ -12,6 +12,7 @@ import com.eventease.service.EventService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,7 +37,7 @@ public class AiAssistantController {
     private final AiAssistantService aiAssistantService;
     private final EventService eventService;
 
-    public AiAssistantController(AiAssistantService aiAssistantService, EventService eventService) {
+    public AiAssistantController(@Lazy AiAssistantService aiAssistantService, EventService eventService) {
         this.aiAssistantService = aiAssistantService;
         this.eventService = eventService;
     }

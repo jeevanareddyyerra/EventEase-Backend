@@ -26,7 +26,7 @@ public class DocumentIndexInitializer {
 
     public DocumentIndexInitializer(
             EventDocumentRepository eventDocumentRepository,
-            DocumentIndexService documentIndexService,
+            @org.springframework.context.annotation.Lazy DocumentIndexService documentIndexService,
             RagProperties ragProperties
     ) {
         this.eventDocumentRepository = eventDocumentRepository;
