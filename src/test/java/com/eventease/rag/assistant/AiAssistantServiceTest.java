@@ -12,13 +12,17 @@ import com.eventease.rag.retrieval.SemanticRetrievalResult;
 import com.eventease.rag.retrieval.SemanticRetriever;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import com.eventease.entity.Event;
+import com.eventease.repository.EventRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -33,6 +37,9 @@ class AiAssistantServiceTest {
     @Mock
     private AiModelClient aiModelClient;
 
+    @Mock
+    private EventRepository eventRepository;
+
     private GroundedPromptBuilder promptBuilder;
     private RagProperties ragProperties;
     private AiAssistantService assistantService;
@@ -43,7 +50,7 @@ class AiAssistantServiceTest {
     void setUp() {
         promptBuilder = new GroundedPromptBuilder();
         ragProperties = new RagProperties();
-        assistantService = new AiAssistantService(semanticRetriever, promptBuilder, aiModelClient, ragProperties);
+        assistantService = new AiAssistantService(semanticRetriever, promptBuilder, aiModelClient, ragProperties, eventRepository);
 
         sampleChunk = new DocumentChunk(
                 "event-10-doc-1-chunk-0",
@@ -203,5 +210,113 @@ class AiAssistantServiceTest {
         assertEquals("INVALID_REQUEST", response.getFallbackReason());
         verifyNoInteractions(semanticRetriever);
         verifyNoInteractions(aiModelClient);
+    }
+
+    @Test
+    @DisplayName("Should answer question for event with no uploaded documents using database fields")
+    void shouldAnswerQuestionForEventWithNoDocuments() {
+        Event event = new Event();
+        event.setId(15L);
+        event.setTitle("Global AI Hackathon 2026");
+        event.setStatus(EventStatus.PUBLISHED);
+        event.setVenue("Tech Convention Center, Hall B");
+        event.setCapacity(150);
+        event.setDate(LocalDate.of(2026, 11, 20));
+
+        when(eventRepository.findByIdWithDetails(15L)).thenReturn(Optional.of(event));
+        SemanticRetrievalResult emptyRetrieval = new SemanticRetrievalResult("what is the venue?", List.of(), 5, 0.0);
+        when(semanticRetriever.retrievePublicEvidence("what is the venue?", 15L)).thenReturn(emptyRetrieval);
+        when(aiModelClient.isConfigured()).thenReturn(true);
+        when(aiModelClient.generateAnswer(anyString(), argThat(prompt -> prompt.contains("Tech Convention Center, Hall B"))))
+                .thenReturn(AiModelResponse.success("The event venue is Tech Convention Center, Hall B.", "gemini-3.8-flash"));
+
+        GroundedAnswerResponse response = assistantService.answerQuestion("what is the venue?", 15L);
+
+        assertTrue(response.isGrounded());
+        assertTrue(response.isEvidenceFound());
+        assertEquals("The event venue is Tech Convention Center, Hall B.", response.getAnswer());
+        assertEquals(1, response.getSources().size());
+        assertEquals("Event Overview", response.getSources().get(0).getDocumentTitle());
+        assertEquals(15L, response.getSources().get(0).getEventId());
+        assertEquals("Global AI Hackathon 2026", response.getSources().get(0).getEventTitle());
+        verify(aiModelClient).generateAnswer(anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("Should answer question directly from event description when no documents exist")
+    void shouldAnswerQuestionFromEventDescription() {
+        Event event = new Event();
+        event.setId(15L);
+        event.setTitle("Global AI Hackathon 2026");
+        event.setStatus(EventStatus.PUBLISHED);
+        event.setDescription("Participants will develop cutting-edge generative AI apps using Python, PyTorch, and Gemini SDK.");
+
+        when(eventRepository.findByIdWithDetails(15L)).thenReturn(Optional.of(event));
+        when(semanticRetriever.retrievePublicEvidence("what tools can we use?", 15L))
+                .thenReturn(new SemanticRetrievalResult("what tools can we use?", List.of(), 5, 0.0));
+        when(aiModelClient.isConfigured()).thenReturn(true);
+        when(aiModelClient.generateAnswer(anyString(), argThat(prompt -> prompt.contains("Python, PyTorch, and Gemini SDK"))))
+                .thenReturn(AiModelResponse.success("According to the event description, you can use Python, PyTorch, and the Gemini SDK.", "gemini-3.8-flash"));
+
+        GroundedAnswerResponse response = assistantService.answerQuestion("what tools can we use?", 15L);
+
+        assertTrue(response.isGrounded());
+        assertTrue(response.isEvidenceFound());
+        assertTrue(response.getAnswer().contains("Python, PyTorch"));
+        assertEquals("Event Overview", response.getSources().get(0).getDocumentTitle());
+    }
+
+    @Test
+    @DisplayName("Should accurately report that eligibility criteria are not specified when field is null")
+    void shouldReportMissingEligibilityCriteriaAccurately() {
+        Event event = new Event();
+        event.setId(15L);
+        event.setTitle("Global AI Hackathon 2026");
+        event.setStatus(EventStatus.PUBLISHED);
+        event.setEligibility(null);
+        event.setDescription("General hackathon for developers.");
+
+        when(eventRepository.findByIdWithDetails(15L)).thenReturn(Optional.of(event));
+        when(semanticRetriever.retrievePublicEvidence("what is the eligibility?", 15L))
+                .thenReturn(new SemanticRetrievalResult("what is the eligibility?", List.of(), 5, 0.0));
+        when(aiModelClient.isConfigured()).thenReturn(true);
+        when(aiModelClient.generateAnswer(anyString(), argThat(prompt -> prompt.contains("Eligibility Criteria: Not explicitly specified in event fields"))))
+                .thenReturn(AiModelResponse.success("Eligibility criteria are not specified in the available event details.", "gemini-3.8-flash"));
+
+        GroundedAnswerResponse response = assistantService.answerQuestion("what is the eligibility?", 15L);
+
+        assertTrue(response.isGrounded());
+        assertTrue(response.isEvidenceFound());
+        assertEquals("Eligibility criteria are not specified in the available event details.", response.getAnswer());
+        assertEquals("Event Overview", response.getSources().get(0).getDocumentTitle());
+    }
+
+    @Test
+    @DisplayName("Should combine event database fields and supplementary document chunks when documents exist")
+    void shouldCombineEventDetailsWithSupplementaryDocuments() {
+        Event event = new Event();
+        event.setId(10L);
+        event.setTitle("Tech Summit 2026");
+        event.setStatus(EventStatus.PUBLISHED);
+        event.setVenue("Auditorium 1");
+
+        ScoredDocumentChunk scored = new ScoredDocumentChunk(sampleChunk, 0.91);
+        SemanticRetrievalResult retrievalResult = new SemanticRetrievalResult("summit details", List.of(scored), 1, 0.91);
+
+        when(eventRepository.findByIdWithDetails(10L)).thenReturn(Optional.of(event));
+        when(semanticRetriever.retrievePublicEvidence("summit details", 10L)).thenReturn(retrievalResult);
+        when(aiModelClient.isConfigured()).thenReturn(true);
+        when(aiModelClient.generateAnswer(anyString(), argThat(prompt ->
+                prompt.contains("Auditorium 1") && prompt.contains("Summit Rules") && prompt.contains("Badges are mandatory"))))
+                .thenReturn(AiModelResponse.success("The summit is held at Auditorium 1. Badges are mandatory per summit rules.", "gemini-3.8-flash"));
+
+        GroundedAnswerResponse response = assistantService.answerQuestion("summit details", 10L);
+
+        assertTrue(response.isGrounded());
+        assertTrue(response.isEvidenceFound());
+        assertEquals(2, response.getSources().size());
+        assertEquals("Event Overview", response.getSources().get(0).getDocumentTitle());
+        assertEquals("Summit Rules", response.getSources().get(1).getDocumentTitle());
+        assertEquals(0.91, response.getTopSimilarityScore(), 0.0001);
     }
 }

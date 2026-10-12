@@ -13,4 +13,7 @@ public interface EventRepository extends JpaRepository<Event, Long>, JpaSpecific
     List<Event> findByStatus(EventStatus status);
     List<Event> findByOrganizerId(Long organizerId);
     long countByStatus(EventStatus status);
+
+    @org.springframework.data.jpa.repository.Query("SELECT e FROM Event e LEFT JOIN FETCH e.volunteerRequirement LEFT JOIN FETCH e.organizer WHERE e.id = :id")
+    java.util.Optional<Event> findByIdWithDetails(@org.springframework.data.repository.query.Param("id") Long id);
 }
